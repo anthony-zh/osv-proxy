@@ -22,10 +22,10 @@ type OSVScaner struct {
 	vulnerabilities map[string]*models.Vulnerability
 }
 
-func (s *OSVScaner) Load() {
+func (s *OSVScaner) Load() error {
 	fs, err := os.ReadDir(s.localDbPath)
 	if err != nil {
-		return
+		return err
 	}
 	loadDBFromCache := func(ecosystem lockfile.Ecosystem) error {
 		if _, ok := s.dbs[ecosystem]; ok {
@@ -52,6 +52,10 @@ func (s *OSVScaner) Load() {
 			return true
 		})
 	}
+	if len(s.vulnerabilities) == 0 {
+		return fmt.Errorf("not vulnerabilitie db")
+	}
+	return nil
 }
 func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 	results := osv.BatchedResponse{
@@ -173,6 +177,8 @@ func NewOSVScaner(opt OSVScanerOpt) *OSVScaner {
 		dbs:             make(map[lockfile.Ecosystem]*local.ZipDB),
 		vulnerabilities: make(map[string]*models.Vulnerability),
 	}
-	o.Load()
+	if err := o.Load(); err != nil {
+		return nil
+	}
 	return &o
 }
