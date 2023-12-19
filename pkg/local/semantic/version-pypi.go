@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"code.gitea.io/gitea/ee/modules/security/dependency2/cachedregexp"
+	"github.com/anthony-zh/osv-proxy/local/cachedregexp"
 )
 
 type PyPIVersion struct {
