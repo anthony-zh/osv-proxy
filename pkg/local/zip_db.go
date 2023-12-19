@@ -15,7 +15,7 @@ import (
 
 	"github.com/anthony-zh/osv-proxy/pkg/local/semantic"
 	"github.com/google/osv-scanner/pkg/lockfile"
-	osvmodels "github.com/google/osv-scanner/pkg/models"
+	"github.com/google/osv-scanner/pkg/models"
 	"github.com/google/osv-scanner/pkg/osv"
 )
 
@@ -25,7 +25,7 @@ type ZipDB struct {
 	// the path to the zip archive on disk
 	StoredAt string
 	// the vulnerabilities that are loaded into this database
-	vulnerabilities []osvmodels.Vulnerability
+	vulnerabilities []models.Vulnerability
 }
 
 var ErrOfflineDatabaseNotFound = errors.New("no offline version of the OSV database is available")
@@ -58,7 +58,7 @@ func (db *ZipDB) loadZipFile(zipFile *zip.File) {
 		return
 	}
 
-	var vulnerability osvmodels.Vulnerability
+	var vulnerability models.Vulnerability
 
 	if err := json.Unmarshal(content, &vulnerability); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%s is not a valid JSON file: %v\n", zipFile.Name, err)
@@ -76,7 +76,7 @@ func (db *ZipDB) loadZipFile(zipFile *zip.File) {
 // so that a new version of the archive is only downloaded if it has been
 // modified, per HTTP caching standards.
 func (db *ZipDB) load() error {
-	db.vulnerabilities = []osvmodels.Vulnerability{}
+	db.vulnerabilities = []models.Vulnerability{}
 
 	body, err := db.fetchZip()
 
@@ -100,9 +100,17 @@ func (db *ZipDB) load() error {
 
 	return nil
 }
-func toPackageDetails(query *osv.Query) (lockfile.PackageDetails, error) {
+
+func (db *ZipDB) Iterates(call func(index int, vulner *models.Vulnerability) bool) {
+	for k := range db.vulnerabilities {
+		if !call(k, &db.vulnerabilities[k]) {
+			return
+		}
+	}
+}
+func ToPackageDetails(query *osv.Query) (lockfile.PackageDetails, error) {
 	if query.Package.PURL != "" {
-		pkg, err := osvmodels.PURLToPackage(query.Package.PURL)
+		pkg, err := models.PURLToPackage(query.Package.PURL)
 
 		if err != nil {
 			return lockfile.PackageDetails{}, err
@@ -138,12 +146,12 @@ func NewZippedDB(dbBasePath, name string) (*ZipDB, error) {
 	return db, nil
 }
 
-func (db *ZipDB) Vulnerabilities(includeWithdrawn bool) []osvmodels.Vulnerability {
+func (db *ZipDB) Vulnerabilities(includeWithdrawn bool) []models.Vulnerability {
 	if includeWithdrawn {
 		return db.vulnerabilities
 	}
 
-	var vulnerabilities []osvmodels.Vulnerability
+	var vulnerabilities []models.Vulnerability
 
 	for _, vulnerability := range db.vulnerabilities {
 		if vulnerability.Withdrawn.IsZero() {
@@ -154,7 +162,7 @@ func (db *ZipDB) Vulnerabilities(includeWithdrawn bool) []osvmodels.Vulnerabilit
 	return vulnerabilities
 }
 
-func eventVersion(e osvmodels.Event) string {
+func eventVersion(e models.Event) string {
 	if e.Introduced != "" {
 		return e.Introduced
 	}
@@ -174,8 +182,8 @@ func eventVersion(e osvmodels.Event) string {
 	return ""
 }
 
-func rangeContainsVersion(ar osvmodels.Range, pkg lockfile.PackageDetails) bool {
-	if ar.Type != osvmodels.RangeEcosystem && ar.Type != osvmodels.RangeSemVer {
+func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) bool {
+	if ar.Type != models.RangeEcosystem && ar.Type != models.RangeSemVer {
 		return false
 	}
 	// todo: we should probably warn here
@@ -218,9 +226,9 @@ func rangeContainsVersion(ar osvmodels.Range, pkg lockfile.PackageDetails) bool 
 
 // rangeAffectsVersion checks if the given version is within the range
 // specified by the events of any "Ecosystem" or "Semver" type ranges
-func rangeAffectsVersion(a []osvmodels.Range, pkg lockfile.PackageDetails) bool {
+func rangeAffectsVersion(a []models.Range, pkg lockfile.PackageDetails) bool {
 	for _, r := range a {
-		if r.Type != osvmodels.RangeEcosystem && r.Type != osvmodels.RangeSemVer {
+		if r.Type != models.RangeEcosystem && r.Type != models.RangeSemVer {
 			return false
 		}
 		if rangeContainsVersion(r, pkg) {
@@ -231,7 +239,7 @@ func rangeAffectsVersion(a []osvmodels.Range, pkg lockfile.PackageDetails) bool 
 	return false
 }
 
-func isAliasOfID(v osvmodels.Vulnerability, id string) bool {
+func isAliasOfID(v models.Vulnerability, id string) bool {
 	for _, alias := range v.Aliases {
 		if alias == id {
 			return true
@@ -241,7 +249,7 @@ func isAliasOfID(v osvmodels.Vulnerability, id string) bool {
 	return false
 }
 
-func isAliasOf(v osvmodels.Vulnerability, vulnerability osvmodels.Vulnerability) bool {
+func isAliasOf(v models.Vulnerability, vulnerability models.Vulnerability) bool {
 	for _, alias := range vulnerability.Aliases {
 		if v.ID == alias || isAliasOfID(v, alias) {
 			return true
@@ -250,7 +258,7 @@ func isAliasOf(v osvmodels.Vulnerability, vulnerability osvmodels.Vulnerability)
 
 	return false
 }
-func Include(vs osvmodels.Vulnerabilities, vulnerability osvmodels.Vulnerability) bool {
+func Include(vs models.Vulnerabilities, vulnerability models.Vulnerability) bool {
 	for _, vuln := range vs {
 		if vuln.ID == vulnerability.ID {
 			return true
@@ -267,7 +275,7 @@ func Include(vs osvmodels.Vulnerabilities, vulnerability osvmodels.Vulnerability
 	return false
 }
 
-func IsAffected(v osvmodels.Vulnerability, pkg lockfile.PackageDetails) bool {
+func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) bool {
 	for _, affected := range v.Affected {
 		if string(affected.Package.Ecosystem) == string(pkg.Ecosystem) &&
 			affected.Package.Name == pkg.Name {
@@ -300,8 +308,8 @@ func IsAffected(v osvmodels.Vulnerability, pkg lockfile.PackageDetails) bool {
 	return false
 }
 
-func (db *ZipDB) VulnerabilitiesAffectingPackage(pkg lockfile.PackageDetails) osvmodels.Vulnerabilities {
-	var vulnerabilities osvmodels.Vulnerabilities
+func (db *ZipDB) VulnerabilitiesAffectingPackage(pkg lockfile.PackageDetails) models.Vulnerabilities {
+	var vulnerabilities models.Vulnerabilities
 
 	for _, vulnerability := range db.Vulnerabilities(false) {
 		if IsAffected(vulnerability, pkg) && !Include(vulnerabilities, vulnerability) {
@@ -312,8 +320,8 @@ func (db *ZipDB) VulnerabilitiesAffectingPackage(pkg lockfile.PackageDetails) os
 	return vulnerabilities
 }
 
-func (db *ZipDB) Check(pkgs []lockfile.PackageDetails) (osvmodels.Vulnerabilities, error) {
-	vulnerabilities := make(osvmodels.Vulnerabilities, 0, len(pkgs))
+func (db *ZipDB) Check(pkgs []lockfile.PackageDetails) (models.Vulnerabilities, error) {
+	vulnerabilities := make(models.Vulnerabilities, 0, len(pkgs))
 
 	for _, pkg := range pkgs {
 		vulnerabilities = append(vulnerabilities, db.VulnerabilitiesAffectingPackage(pkg)...)

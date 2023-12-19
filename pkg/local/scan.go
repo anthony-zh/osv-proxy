@@ -28,7 +28,7 @@ func MakeRequest(query osv.BatchedQuery, dbBasePath string) (*osv.HydratedBatche
 	}
 
 	for _, query := range query.Queries {
-		pkg, err := toPackageDetails(query)
+		pkg, err := ToPackageDetails(query)
 
 		if err != nil {
 			// currently, this will actually only error if the PURL cannot be parses
