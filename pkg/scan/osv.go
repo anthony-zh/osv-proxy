@@ -17,7 +17,7 @@ type OSVScaner struct {
 	localDbPath    string
 }
 
-func (s *OSVScaner) Query() {
+func (s *OSVScaner) QueryBatch() {
 
 }
 

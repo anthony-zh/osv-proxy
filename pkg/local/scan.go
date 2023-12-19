@@ -22,7 +22,7 @@ func MakeRequest(query osv.BatchedQuery, dbBasePath string) (*osv.HydratedBatche
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("Loaded %s local db from %\n", db.Name, db.StoredAt)
+		log.Printf("Loaded %s local db from %s\n", db.Name, db.StoredAt)
 		dbs[ecosystem] = db
 		return db, nil
 	}

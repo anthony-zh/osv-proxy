@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/anthony-zh/osv-proxy/local/cachedregexp"
+	"github.com/anthony-zh/osv-proxy/pkg/local/cachedregexp"
 )
 
 // SemverLikeVersion is a version that is _like_ a version as defined by the

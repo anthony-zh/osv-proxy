@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/anthony-zh/osv-proxy/local/semantic"
+	"github.com/anthony-zh/osv-proxy/pkg/local/semantic"
 	"github.com/google/osv-scanner/pkg/lockfile"
 	osvmodels "github.com/google/osv-scanner/pkg/models"
 	"github.com/google/osv-scanner/pkg/osv"

@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/anthony-zh/osv-proxy/local/cachedregexp"
+	"github.com/anthony-zh/osv-proxy/pkg/local/cachedregexp"
 )
 
 type PyPIVersion struct {

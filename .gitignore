@@ -1,0 +1,9 @@
+.history/
+.vscode/
+.idea/
+/dist/
+/osv-proxy
+/coverage.out
+/coverage.html
+*.exe
+*.exe~
