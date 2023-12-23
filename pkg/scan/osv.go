@@ -181,7 +181,7 @@ func (s *OSVScaner) DoSacn(ctx context.Context, file lockfile.Lockfile, compareL
 				continue
 			}
 			if db, ok := s.dbs[pkg.Ecosystem]; ok {
-				results = append(results, osv.Response{Vulns: db.VulnerabilitiesAffectingPackage(pkg)})
+				results = append(results, osv.Response{Vulns: db.VulnerabilitiesAffectingPackage2(pkg)})
 			}
 
 		}
