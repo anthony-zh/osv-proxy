@@ -57,6 +57,16 @@ func (s *OSVScaner) Load() error {
 	}
 	return nil
 }
+
+func (s *OSVScaner) Iterates(call func(name lockfile.Ecosystem, index int, vulner *models.Vulnerability) bool) {
+	for k, v := range s.dbs {
+		if !v.Iterates(func(index int, vulner *models.Vulnerability) bool {
+			return call(k, index, vulner)
+		}) {
+			break
+		}
+	}
+}
 func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 	results := osv.BatchedResponse{
 		Results: make([]osv.MinimalResponse, len(o.Queries)),

@@ -101,12 +101,13 @@ func (db *ZipDB) load() error {
 	return nil
 }
 
-func (db *ZipDB) Iterates(call func(index int, vulner *models.Vulnerability) bool) {
+func (db *ZipDB) Iterates(call func(index int, vulner *models.Vulnerability) bool) bool {
 	for k := range db.vulnerabilities {
 		if !call(k, &db.vulnerabilities[k]) {
-			return
+			return false
 		}
 	}
+	return true
 }
 func ToPackageDetails(query *osv.Query) (lockfile.PackageDetails, error) {
 	if query.Package.PURL != "" {
