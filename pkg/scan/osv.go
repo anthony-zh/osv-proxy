@@ -105,7 +105,7 @@ func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 			continue
 		}
 		if db, ok := s.dbs[pkg.Ecosystem]; ok {
-			vulns := db.VulnerabilitiesAffectingPackage(pkg)
+			vulns := db.VulnerabilitiesAffectingPackage2(pkg)
 			arr := make([]osv.MinimalVulnerability, 0)
 			if len(vulns) > 0 {
 				for _, v1 := range vulns {

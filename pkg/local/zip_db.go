@@ -26,6 +26,7 @@ type ZipDB struct {
 	StoredAt string
 	// the vulnerabilities that are loaded into this database
 	vulnerabilities []models.Vulnerability
+	packageNames    map[string][]int
 }
 
 var ErrOfflineDatabaseNotFound = errors.New("no offline version of the OSV database is available")
@@ -67,6 +68,7 @@ func (db *ZipDB) loadZipFile(zipFile *zip.File) {
 	}
 
 	db.vulnerabilities = append(db.vulnerabilities, vulnerability)
+
 }
 
 // load fetches a zip archive of the OSV database and loads known vulnerabilities
@@ -98,6 +100,29 @@ func (db *ZipDB) load() error {
 		db.loadZipFile(zipFile)
 	}
 
+	for k, v := range db.vulnerabilities {
+		if v.Withdrawn.IsZero() {
+			continue
+		}
+		for _, v1 := range v.Affected {
+			names := strings.ToLower(fmt.Sprintf("%v:%v", v1.Package.Ecosystem, v1.Package.Name))
+			vv, ok := db.packageNames[names]
+			if !ok {
+				vv = make([]int, 0)
+			}
+			bFind := false
+			for _, v2 := range vv {
+				if v2 == k {
+					bFind = true
+					break
+				}
+			}
+			if !bFind {
+				db.packageNames[names] = vv
+			}
+		}
+
+	}
 	return nil
 }
 
@@ -137,8 +162,9 @@ func ToPackageDetails(query *osv.Query) (lockfile.PackageDetails, error) {
 // https://osv-vulnerabilities.storage.googleapis.com/{:ecosystem}/all.zip
 func NewZippedDB(dbBasePath, name string) (*ZipDB, error) {
 	db := &ZipDB{
-		Name:     name,
-		StoredAt: path.Join(dbBasePath, name, "all.zip"),
+		Name:         name,
+		StoredAt:     path.Join(dbBasePath, name, "all.zip"),
+		packageNames: make(map[string][]int),
 	}
 	if err := db.load(); err != nil {
 		return nil, fmt.Errorf("unable to fetch OSV database: %w", err)
@@ -309,6 +335,19 @@ func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) bool {
 	return false
 }
 
+func (db *ZipDB) VulnerabilitiesAffectingPackage2(pkg lockfile.PackageDetails) models.Vulnerabilities {
+	names := strings.ToLower(fmt.Sprintf("%v:%v", string(pkg.Ecosystem), pkg.Name))
+	var vulnerabilities models.Vulnerabilities
+	if vv, ok := db.packageNames[names]; ok {
+		for _, v := range vv {
+			vulnerability := db.vulnerabilities[v]
+			if IsAffected(vulnerability, pkg) && !Include(vulnerabilities, vulnerability) {
+				vulnerabilities = append(vulnerabilities, vulnerability)
+			}
+		}
+	}
+	return vulnerabilities
+}
 func (db *ZipDB) VulnerabilitiesAffectingPackage(pkg lockfile.PackageDetails) models.Vulnerabilities {
 	var vulnerabilities models.Vulnerabilities
 
