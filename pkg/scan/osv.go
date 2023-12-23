@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/anthony-zh/osv-proxy/pkg/local"
 	"github.com/google/osv-scanner/pkg/lockfile"
@@ -16,13 +17,18 @@ type OSVScanerOpt struct {
 	DbPath string
 }
 type OSVScaner struct {
-	localDbPath string
-
+	localDbPath     string
+	lock            sync.RWMutex
 	dbs             map[lockfile.Ecosystem]*local.ZipDB
 	vulnerabilities map[string]*models.Vulnerability
 }
 
-func (s *OSVScaner) Load() error {
+func (s *OSVScaner) Load(dbPath string) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.dbs = make(map[lockfile.Ecosystem]*local.ZipDB)
+	s.vulnerabilities = make(map[string]*models.Vulnerability)
+	s.localDbPath = dbPath
 	fs, err := os.ReadDir(s.localDbPath)
 	if err != nil {
 		return err
@@ -59,6 +65,11 @@ func (s *OSVScaner) Load() error {
 }
 
 func (s *OSVScaner) Iterates(call func(name lockfile.Ecosystem, index int, vulner *models.Vulnerability) bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if s.dbs == nil {
+		return
+	}
 	for k, v := range s.dbs {
 		if !v.Iterates(func(index int, vulner *models.Vulnerability) bool {
 			return call(k, index, vulner)
@@ -68,6 +79,12 @@ func (s *OSVScaner) Iterates(call func(name lockfile.Ecosystem, index int, vulne
 	}
 }
 func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if s.dbs == nil {
+		return nil
+	}
+
 	results := osv.BatchedResponse{
 		Results: make([]osv.MinimalResponse, len(o.Queries)),
 	}
@@ -106,6 +123,11 @@ func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 }
 
 func (s *OSVScaner) QueryVulnId(vulnId string) *models.Vulnerability {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if s.vulnerabilities == nil {
+		return nil
+	}
 	if vv, ok := s.vulnerabilities[vulnId]; ok {
 		return vv
 	}
@@ -133,10 +155,11 @@ func (s *OSVScaner) DoSacn(ctx context.Context, file lockfile.Lockfile, compareL
 	}
 
 	if compareLocally {
-		// hydratedResp, err := local.MakeRequest(query, s.localDbPath)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("scan failed %w", err)
-		// }
+		s.lock.RLock()
+		defer s.lock.RUnlock()
+		if s.dbs == nil {
+			return nil, fmt.Errorf("not init dbs")
+		}
 
 		results := make([]osv.Response, 0, len(query.Queries))
 		for _, query := range query.Queries {
@@ -182,12 +205,8 @@ func (s *OSVScaner) DoSacn(ctx context.Context, file lockfile.Lockfile, compareL
 }
 
 func NewOSVScaner(opt OSVScanerOpt) *OSVScaner {
-	o := OSVScaner{
-		localDbPath:     opt.DbPath,
-		dbs:             make(map[lockfile.Ecosystem]*local.ZipDB),
-		vulnerabilities: make(map[string]*models.Vulnerability),
-	}
-	if err := o.Load(); err != nil {
+	o := OSVScaner{}
+	if err := o.Load(opt.DbPath); err != nil {
 		return nil
 	}
 	return &o
