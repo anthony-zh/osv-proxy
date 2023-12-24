@@ -11,7 +11,7 @@ import (
 func main() {
 
 	o := scan.NewOSVScaner(scan.OSVScanerOpt{
-		DbPath: "E:\\workspace\\gitea-ee\\osv-server\\data\\osvdbs",
+		DbPath: "E:\\workspace\\gitea-ee\\osv-server\\data\\osvdbs\\zh",
 	})
 	VulnId := "GHSA-67hx-6x53-jw92"
 	vulnInfo := o.QueryVulnId(VulnId)

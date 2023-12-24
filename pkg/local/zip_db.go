@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -118,7 +118,7 @@ func (db *ZipDB) load() error {
 				}
 			}
 			if !bFind {
-				db.packageNames[names] = vv
+				db.packageNames[names] = append(vv, k)
 			}
 		}
 
@@ -163,7 +163,7 @@ func ToPackageDetails(query *osv.Query) (lockfile.PackageDetails, error) {
 func NewZippedDB(dbBasePath, name string) (*ZipDB, error) {
 	db := &ZipDB{
 		Name:         name,
-		StoredAt:     path.Join(dbBasePath, name, "all.zip"),
+		StoredAt:     filepath.Join(dbBasePath, name, "all.zip"),
 		packageNames: make(map[string][]int),
 	}
 	if err := db.load(); err != nil {
@@ -339,6 +339,7 @@ func (db *ZipDB) VulnerabilitiesAffectingPackage2(pkg lockfile.PackageDetails) m
 	names := strings.ToLower(fmt.Sprintf("%v:%v", string(pkg.Ecosystem), pkg.Name))
 	var vulnerabilities models.Vulnerabilities
 	if vv, ok := db.packageNames[names]; ok {
+		fmt.Println("--->", names, vv)
 		for _, v := range vv {
 			vulnerability := db.vulnerabilities[v]
 			if IsAffected(vulnerability, pkg) && !Include(vulnerabilities, vulnerability) {
