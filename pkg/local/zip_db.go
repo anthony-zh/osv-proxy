@@ -275,18 +275,27 @@ func isAliasOf(v models.Vulnerability, vulnerability models.Vulnerability) bool 
 
 	return false
 }
+
+var (
+	IgnoreAlias = false
+)
+
 func Include(vs models.Vulnerabilities, vulnerability models.Vulnerability) bool {
 	for _, vuln := range vs {
 		if vuln.ID == vulnerability.ID {
 			return true
 		}
 
-		if isAliasOf(vuln, vulnerability) {
-			return true
+		//  这里主要是去掉漏洞号不同，其它一样的漏洞信息
+		if !IgnoreAlias {
+			if isAliasOf(vuln, vulnerability) {
+				return true
+			}
+			if isAliasOf(vulnerability, vuln) {
+				return true
+			}
 		}
-		if isAliasOf(vulnerability, vuln) {
-			return true
-		}
+
 	}
 
 	return false

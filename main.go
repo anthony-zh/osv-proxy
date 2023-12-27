@@ -13,41 +13,77 @@ import (
 
 func main() {
 
-	bType := false
+	bType := true
 	if bType {
 		o := scan.NewOSVScaner(scan.OSVScanerOpt{
-			DbPath: "E:\\workspace\\gitea-ee\\osv-server\\data\\osvdbs\\zh",
+			DbPath:      "./data/osvdbs/zh",
+			IgnoreAlias: true,
 		})
-		VulnId := "GHSA-67hx-6x53-jw92"
-		vulnInfo := o.QueryVulnId(VulnId)
-		fmt.Println("VulnId:", VulnId, "result:", vulnInfo)
+		// lockFile, err := scan.FindLockfiles("./test/go.mod")
+		// if err != nil {
+		// 	fmt.Println("err", err)
+		// 	return
+		// }
+		// //	arr, _ := o.DoSacn(context.Background(), *lockFile, true)
 
-		data := `{
-			"queries": [
-				{
-					"commit": "0454aac03d8cd224d39b5dbba7badae8390b239f",
-					"package": {}
-				},
-				{
-					"package": {
-						"name": "@ampproject/remapping",
-						"ecosystem": "npm"
-					},
-					"version": "2.2.0"
-				},
-				{
-					"package": {
-						"name": "@antv/event-emitter",
-						"ecosystem": "npm"
-					},
-					"version": "0.1.3"
-				}
-			]
-		}`
-		batch := &osv.BatchedQuery{}
-		json.Unmarshal([]byte(data), batch)
-		res := o.QueryBatch(batch)
-		fmt.Println("Batch:", VulnId, "result:", res)
+		var query osv.BatchedQuery
+		// for _, p := range lockFile.Packages {
+		// 	query.Queries = append(query.Queries, osv.MakePkgRequest(lockfile.PackageDetails{
+		// 		Name:      p.Name,
+		// 		Version:   p.Version,
+		// 		Ecosystem: p.Ecosystem,
+		// 	}))
+		// }
+
+		query.Queries = append(query.Queries, osv.MakePkgRequest(lockfile.PackageDetails{
+			Name:      "golang.org/x/crypto",
+			Version:   "0.13.0",
+			Ecosystem: "Go", //[{GHSA-45x7-px36-x8w8} {GO-2023-2402}]
+		}))
+		query.Queries = append(query.Queries, osv.MakePkgRequest(lockfile.PackageDetails{
+			Name:      "golang.org/x/net",
+			Version:   "0.15.0",
+			Ecosystem: "Go", //[{GHSA-4374-p667-p6c8} {GHSA-qppj-fm5r-hxr3} {GO-2023-2102}]
+		}))
+		arr := o.QueryBatch(&query)
+
+		fmt.Println("result:", arr)
+		// for i := 70; i < 80; i++ {
+		// 	fmt.Println(i, lockFile.Packages[i], arr.Results[i])
+		// }
+
+		//[{[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[{GHSA-7ww5-4wqc-m92c}]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[{GHSA-45x7-px36-x8w8} {GO-2023-2402}]} {[]} {[{GHSA-4374-p667-p6c8} {GHSA-qppj-fm5r-hxr3} {GO-2023-2102}]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]}]
+		//[{[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[{GHSA-7ww5-4wqc-m92c}]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[{GHSA-45x7-px36-x8w8}]} {[]} {[{GHSA-4374-p667-p6c8} {GHSA-qppj-fm5r-hxr3}]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]} {[]}]}
+		// VulnId := "GHSA-67hx-6x53-jw92"
+		// vulnInfo := o.QueryVulnId(VulnId)
+		// fmt.Println("VulnId:", VulnId, "result:", vulnInfo)
+
+		// data := `{
+		// 	"queries": [
+		// 		{
+		// 			"commit": "0454aac03d8cd224d39b5dbba7badae8390b239f",
+		// 			"package": {}
+		// 		},
+		// 		{
+		// 			"package": {
+		// 				"name": "@ampproject/remapping",
+		// 				"ecosystem": "npm"
+		// 			},
+		// 			"version": "2.2.0"
+		// 		},
+		// 		{
+		// 			"package": {
+		// 				"name": "@antv/event-emitter",
+		// 				"ecosystem": "npm"
+		// 			},
+		// 			"version": "0.1.3"
+		// 		}
+		// 	]
+		// }`
+		// batch := &osv.BatchedQuery{}
+		// json.Unmarshal([]byte(data), batch)
+		// res := o.QueryBatch(batch)
+		// fmt.Println("Batch:", VulnId, "result:", res)
 	}
 
 	data2 := `{

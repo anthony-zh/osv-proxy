@@ -14,7 +14,8 @@ import (
 )
 
 type OSVScanerOpt struct {
-	DbPath string
+	DbPath      string
+	IgnoreAlias bool
 }
 type OSVScaner struct {
 	localDbPath     string
@@ -141,6 +142,7 @@ func (s *OSVScaner) DoSacn(ctx context.Context, file lockfile.Lockfile, compareL
 			Name:      p.Name,
 			Version:   p.Version,
 			Ecosystem: p.Ecosystem,
+			CompareAs: p.CompareAs,
 		}))
 	}
 
@@ -204,10 +206,29 @@ func (s *OSVScaner) DoSacn(ctx context.Context, file lockfile.Lockfile, compareL
 	return call(hydratedResp), nil
 }
 
+func FindLockfiles(filePath string) (*lockfile.Lockfile, error) {
+
+	p, parseAs := lockfile.FindExtractor(filePath, "")
+	if p != nil {
+		f, err := lockfile.OpenLocalDepFile(filePath)
+		if err != nil {
+			return nil, err
+		}
+		parsedLockfile, err := lockfile.ExtractDeps(f, parseAs)
+		f.Close()
+		if err != nil {
+			return nil, err
+		}
+		return &parsedLockfile, nil
+	}
+	return nil, fmt.Errorf("Not Supported")
+}
+
 func NewOSVScaner(opt OSVScanerOpt) *OSVScaner {
 	o := OSVScaner{}
 	if err := o.Load(opt.DbPath); err != nil {
 		return nil
 	}
+	local.IgnoreAlias = opt.IgnoreAlias
 	return &o
 }
