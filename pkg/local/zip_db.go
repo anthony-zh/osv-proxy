@@ -302,6 +302,10 @@ func Include(vs models.Vulnerabilities, vulnerability models.Vulnerability) bool
 }
 
 func GetFixedVersion(affected *models.Affected, pkg lockfile.PackageDetails) (string, bool) {
+	if len(affected.Package.Name) > 0 && affected.Package.Name != pkg.Name {
+		return "", false
+	}
+	////////////////////////////////////////////////////
 	for _, r := range affected.Ranges {
 		if r.Type != models.RangeEcosystem && r.Type != models.RangeSemVer {
 			continue
