@@ -183,13 +183,13 @@ func eventVersion(e models.Event) string {
 	return ""
 }
 
-func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) bool {
+func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) (string, bool) {
 	if ar.Type != models.RangeEcosystem && ar.Type != models.RangeSemVer {
-		return false
+		return "", false
 	}
 	// todo: we should probably warn here
 	if len(ar.Events) == 0 {
-		return false
+		return "", false
 	}
 
 	vp := semantic.MustParse(pkg.Version, pkg.CompareAs)
@@ -210,19 +210,29 @@ func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) bool {
 	})
 
 	var affected bool
+	var version = ""
 	for _, e := range ar.Events {
 		if affected {
 			if e.Fixed != "" {
 				affected = vp.CompareStr(e.Fixed) < 0
+				if affected {
+					version = e.Fixed
+				}
 			} else if e.LastAffected != "" {
 				affected = e.LastAffected == pkg.Version || vp.CompareStr(e.LastAffected) <= 0
+				if affected {
+					version = e.Fixed
+				}
 			}
 		} else if e.Introduced != "" {
 			affected = e.Introduced == "0" || vp.CompareStr(e.Introduced) >= 0
+			if affected {
+				version = e.Fixed
+			}
 		}
 	}
 
-	return affected
+	return version, affected
 }
 
 // rangeAffectsVersion checks if the given version is within the range
@@ -232,7 +242,7 @@ func rangeAffectsVersion(a []models.Range, pkg lockfile.PackageDetails) bool {
 		if r.Type != models.RangeEcosystem && r.Type != models.RangeSemVer {
 			return false
 		}
-		if rangeContainsVersion(r, pkg) {
+		if _, b := rangeContainsVersion(r, pkg); b {
 			return true
 		}
 	}
@@ -274,6 +284,19 @@ func Include(vs models.Vulnerabilities, vulnerability models.Vulnerability) bool
 	}
 
 	return false
+}
+
+func GetFixedVersion(affected *models.Affected, pkg lockfile.PackageDetails) (string, bool) {
+	for _, r := range affected.Ranges {
+		if r.Type != models.RangeEcosystem && r.Type != models.RangeSemVer {
+			continue
+		}
+		if ver, b := rangeContainsVersion(r, pkg); b {
+			return ver, true
+		}
+	}
+
+	return "", false
 }
 
 func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) bool {
