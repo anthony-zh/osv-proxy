@@ -192,7 +192,10 @@ func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) (string,
 		return "", false
 	}
 
-	vp := semantic.MustParse(pkg.Version, pkg.CompareAs)
+	vp, err := semantic.Parse(pkg.Version, pkg.CompareAs)
+	if err != nil {
+		return "", false
+	}
 
 	sort.Slice(ar.Events, func(i, j int) bool {
 		a := ar.Events[i]
@@ -205,8 +208,11 @@ func rangeContainsVersion(ar models.Range, pkg lockfile.PackageDetails) (string,
 		if b.Introduced == "0" {
 			return false
 		}
-
-		return semantic.MustParse(eventVersion(a), pkg.CompareAs).CompareStr(eventVersion(b)) < 0
+		vp1, err := semantic.Parse(eventVersion(a), pkg.CompareAs)
+		if err != nil {
+			return false
+		}
+		return vp1.CompareStr(eventVersion(b)) < 0
 	})
 
 	var affected bool
