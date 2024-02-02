@@ -79,7 +79,7 @@ func (s *OSVScaner) Iterates(call func(name lockfile.Ecosystem, index int, vulne
 		}
 	}
 }
-func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
+func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery, call func(pkg lockfile.PackageDetails) models.Vulnerabilities) *osv.BatchedResponse {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	if s.dbs == nil {
@@ -106,8 +106,11 @@ func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 			continue
 		}
 		if db, ok := s.dbs[pkg.Ecosystem]; ok {
-			vulns := db.VulnerabilitiesAffectingPackage(pkg)
+			vulns, bHas := db.VulnerabilitiesAffectingPackage2(pkg)
 			arr := make([]osv.MinimalVulnerability, 0)
+			if !bHas && len(vulns) == 0 && call != nil {
+				vulns = call(pkg)
+			}
 			if len(vulns) > 0 {
 				for _, v1 := range vulns {
 					arr = append(arr, osv.MinimalVulnerability{
@@ -122,7 +125,25 @@ func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery) *osv.BatchedResponse {
 	}
 	return &results
 }
-
+func (s *OSVScaner) AddVulnId(o *models.Vulnerability) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	if s.vulnerabilities == nil {
+		return
+	}
+	s.vulnerabilities[o.ID] = o
+	for _, v := range o.Affected {
+		if vv, ok := s.dbs[lockfile.Ecosystem(v.Package.Ecosystem)]; ok {
+			vv.Add(o)
+		} else {
+			zipDb := &local.ZipDB{
+				Name: string(v.Package.Ecosystem),
+			}
+			zipDb.Add(o)
+			s.dbs[lockfile.Ecosystem(v.Package.Ecosystem)] = zipDb
+		}
+	}
+}
 func (s *OSVScaner) QueryVulnId(vulnId string) *models.Vulnerability {
 	s.lock.RLock()
 	defer s.lock.RUnlock()

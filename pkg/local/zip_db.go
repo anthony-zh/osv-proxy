@@ -101,6 +101,18 @@ func (db *ZipDB) load() error {
 	return nil
 }
 
+func (db *ZipDB) Add(vulner *models.Vulnerability) {
+	if db.vulnerabilities == nil {
+		db.vulnerabilities = make([]models.Vulnerability, 0)
+	}
+	for _, v := range db.vulnerabilities {
+		if v.ID == vulner.ID {
+			return
+		}
+	}
+	db.vulnerabilities = append(db.vulnerabilities, *vulner)
+}
+
 func (db *ZipDB) Iterates(call func(index int, vulner *models.Vulnerability) bool) bool {
 	for k := range db.vulnerabilities {
 		if !call(k, &db.vulnerabilities[k]) {
@@ -318,10 +330,12 @@ func GetFixedVersion(affected *models.Affected, pkg lockfile.PackageDetails) (st
 	return "", false
 }
 
-func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) bool {
+func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) (bool, bool) {
+	bHere := false
 	for _, affected := range v.Affected {
 		if string(affected.Package.Ecosystem) == string(pkg.Ecosystem) &&
 			affected.Package.Name == pkg.Name {
+			bHere = true
 			if len(affected.Ranges) == 0 && len(affected.Versions) == 0 {
 				_, _ = fmt.Fprintf(
 					os.Stderr,
@@ -333,34 +347,53 @@ func IsAffected(v models.Vulnerability, pkg lockfile.PackageDetails) bool {
 			}
 
 			if slices.Contains(affected.Versions, pkg.Version) {
-				return true
+				return bHere, true
 			}
 
 			if rangeAffectsVersion(affected.Ranges, pkg) {
-				return true
+				return bHere, true
 			}
 
 			// if a package does not have a version, assume it is vulnerable
 			// as false positives are better than false negatives here
 			if pkg.Version == "" {
-				return true
+				return bHere, true
 			}
 		}
 	}
 
-	return false
+	return bHere, false
 }
-
 func (db *ZipDB) VulnerabilitiesAffectingPackage(pkg lockfile.PackageDetails) models.Vulnerabilities {
 	var vulnerabilities models.Vulnerabilities
 
 	for _, vulnerability := range db.Vulnerabilities(false) {
-		if IsAffected(vulnerability, pkg) && !Include(vulnerabilities, vulnerability) {
-			vulnerabilities = append(vulnerabilities, vulnerability)
+		_, b2 := IsAffected(vulnerability, pkg)
+		if b2 {
+			if !Include(vulnerabilities, vulnerability) {
+				vulnerabilities = append(vulnerabilities, vulnerability)
+			}
 		}
 	}
 
 	return vulnerabilities
+}
+func (db *ZipDB) VulnerabilitiesAffectingPackage2(pkg lockfile.PackageDetails) (models.Vulnerabilities, bool) {
+	var vulnerabilities models.Vulnerabilities
+	bHere := false
+	for _, vulnerability := range db.Vulnerabilities(false) {
+		b1, b2 := IsAffected(vulnerability, pkg)
+		if b1 {
+			bHere = true
+		}
+		if b2 {
+			if !Include(vulnerabilities, vulnerability) {
+				vulnerabilities = append(vulnerabilities, vulnerability)
+			}
+		}
+	}
+
+	return vulnerabilities, bHere
 }
 
 func (db *ZipDB) Check(pkgs []lockfile.PackageDetails) (models.Vulnerabilities, error) {

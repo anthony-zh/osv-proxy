@@ -45,7 +45,7 @@ func main() {
 			Version:   "0.15.0",
 			Ecosystem: "Go", //[{GHSA-4374-p667-p6c8} {GHSA-qppj-fm5r-hxr3} {GO-2023-2102}]
 		}))
-		arr := o.QueryBatch(&query)
+		arr := o.QueryBatch(&query, nil)
 
 		fmt.Println("result:", arr)
 		// for i := 70; i < 80; i++ {
