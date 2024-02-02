@@ -79,7 +79,7 @@ func (s *OSVScaner) Iterates(call func(name lockfile.Ecosystem, index int, vulne
 		}
 	}
 }
-func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery, call func(pkg lockfile.PackageDetails) models.Vulnerabilities) *osv.BatchedResponse {
+func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery, call func(query *osv.Query, pkg lockfile.PackageDetails) models.Vulnerabilities) *osv.BatchedResponse {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	if s.dbs == nil {
@@ -109,7 +109,7 @@ func (s *OSVScaner) QueryBatch(o *osv.BatchedQuery, call func(pkg lockfile.Packa
 			vulns, bHas := db.VulnerabilitiesAffectingPackage2(pkg)
 			arr := make([]osv.MinimalVulnerability, 0)
 			if !bHas && len(vulns) == 0 && call != nil {
-				vulns = call(pkg)
+				vulns = call(query, pkg)
 			}
 			if len(vulns) > 0 {
 				for _, v1 := range vulns {
